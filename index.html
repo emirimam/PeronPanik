@@ -107,7 +107,7 @@ function persist(){try{localStorage.setItem('peronpanika',JSON.stringify(save))}
 let W=380,H=700,cell=40,lotX=0,lotY=0,cols=6,rows=7,CX=190,CY=100,RAD=84,baysTop=200,baysY=248,lotTop=310;
 const bayH=96;
 let buses=[],queue=[],pool=[],bays=[],flights=[],parts=[],floats=[],cones=[];
-let state='menu',combo=0,comboT=0,craneArmed=false,bayBought=false,bayShake=0,totalPax=0,entryT=0,boardSndT=0,shakeT=0;
+let state='menu',combo=0,comboT=0,craneArmed=false,bayBought=false,bayShake=0,totalPax=0,entryT=0,boardSndT=0,shakeT=0,gateT=0;
 let rush=false,rushT=0,lastTick=null,usedBoost=false,pid=0;
 
 // ================= AUDIO =================
@@ -286,19 +286,26 @@ function genLevel(n){
   const nMys=n>=2?Math.min(1+Math.floor(n/4),4):0;
   buses.filter(b=>b.lockBy==null&&b.key==null&&!b.ice&&!freeDist(b).clear).sort(()=>Math.random()-.5).slice(0,nMys).forEach(b=>b.hidden=true);
   POOL=Math.max(14,30-Math.floor(n*1.3));
-  // crowd follows the exit order, shuffled in a sliding window
-  const base=[];placed.slice().reverse().forEach(b=>{for(let k=0;k<b.cap;k++)base.push(b.color)});
-  let win=Math.min(14+n*5,90),q=base;
+  // crowd: colour groups follow the exit order, shuffled in a sliding window, then dealt to the left and right queues
+  const chunks=[];placed.slice().reverse().forEach(b=>{let left=b.cap;while(left>0){const s=Math.min(left,ri(3,5));chunks.push({c:b.color,n:s});left-=s}});
+  let win=Math.min(3+Math.floor(n*1.2),24),q=interleave(chunks);
   for(let tr=0;tr<14;tr++){
-    if(tr&&tr%4===0)win=Math.max(1,Math.floor(win/2));
-    const c=base.slice();for(let i=0;i<c.length;i++){const j=Math.min(c.length-1,i+ri(0,win));[c[i],c[j]]=[c[j],c[i]]}
-    queue=c.map(x=>({c:x}));if(solvable(5,POOL,12000)===true){q=c;break}
+    if(tr&&tr%4===0)win=Math.max(0,Math.floor(win/2));
+    const cs=chunks.slice();for(let i=0;i<cs.length;i++){const j=Math.min(cs.length-1,i+ri(0,win));[cs[i],cs[j]]=[cs[j],cs[i]]}
+    const order=interleave(cs);queue=order;if(solvable(5,POOL,12000)===true){q=order;break}
   }
-  queue=q.map((c,i)=>({c,side:i%2,v:ri(0,7),ph:Math.random()*4,id:pid++,x:0,y:0,init:false}));
+  queue=q.map(o=>({c:o.c,side:o.side,v:ri(0,7),ph:Math.random()*4,id:pid++,x:0,y:0,init:false}));
   totalPax=queue.length;pool=[];
   bays=new Array(5).fill(null);bayBought=false;craneArmed=false;usedBoost=false;
   rush=n%5===0;rushT=rush?Math.round(25+N*5.5):0;lastTick=null;
   flights=[];floats=[];parts=[];entryT=.5;combo=0;
+}
+// Left and right queues feed the circle in turn, one person from each side.
+function interleave(chunks){
+  const sides=[[],[]];chunks.forEach((ch,i)=>{for(let k=0;k<ch.n;k++)sides[i%2].push(ch.c)});
+  const out=[],ix=[0,0];let s=0;
+  while(ix[0]<sides[0].length||ix[1]<sides[1].length){if(ix[s]>=sides[s].length)s^=1;out.push({c:sides[s][ix[s]++],side:s});s^=1}
+  return out;
 }
 // Depth-first search over which bus to pull next, with the crowd circle holding P people. true = a win exists, false = none, null = budget ran out.
 function solvable(SLOTS,P,budget){
@@ -334,11 +341,11 @@ function freeDist(b){const g=occ();let [x,y]=frontOf(b);const [dx,dy]=DIRS[b.dir
 
 // ================= PEOPLE SPRITES =================
 const SKIN=['#f6d3b8','#e9b78f','#c98d64','#8a5a3c'],HAIR=['#2b1d16','#5b3a22','#c99040','#1b1b22','#9c4a2a','#d8d2c8'],PANTS=['#2f3b5c','#3f5684','#1f232b','#6d5b3f','#4b5060'];
-const SPR={},SC=3,SW=14,SH=20;
+const SPR={},SC=3,SW=14,SH=21;
 function rng(seed){return()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646}}
 function drawPerson(g,col,o,f){
   const leg=[0,1.3,0,-1.3][f],arm=[0,1.2,0,-1.2][f],bob=f%2?-.4:0;
-  g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(7,19,4.6,1.4,0,0,7);g.fill();
+  g.globalAlpha=.6;g.fillStyle=col;g.beginPath();g.ellipse(7,19,5.8,1.9,0,0,7);g.fill();g.globalAlpha=1;g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(7,19,3.6,1.1,0,0,7);g.fill();
   g.save();g.translate(0,bob);
   g.fillStyle=o.pants;rr(4.3,13.2,2.5,5.6-Math.max(0,leg),1,g);g.fill();rr(7.2,13.2,2.5,5.6-Math.max(0,-leg),1,g);g.fill();
   g.fillStyle='#22242b';rr(4,18.1-Math.max(0,leg),3,1.4,.6,g);g.fill();rr(7,18.1-Math.max(0,-leg),3,1.4,.6,g);g.fill();
@@ -347,7 +354,7 @@ function drawPerson(g,col,o,f){
   g.fillStyle=dark;rr(1.5,8+arm,2.2,5,1.1,g);g.fill();rr(10.3,8-arm,2.2,5,1.1,g);g.fill();
   g.fillStyle=o.skin;circ(2.6,13.3+arm,1.1,g);g.fill();circ(11.4,13.3-arm,1.1,g);g.fill();
   const tg=g.createLinearGradient(3,0,11,0);tg.addColorStop(0,shade(col,.28));tg.addColorStop(.6,col);tg.addColorStop(1,shade(col,-.22));
-  g.fillStyle=tg;rr(3,7.4,8,7,2.6,g);g.fill();
+  g.fillStyle=tg;rr(3,7.4,8,7,2.6,g);g.fill();g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=.5;g.stroke();
   if(o.stripe){g.fillStyle='rgba(255,255,255,.5)';g.fillRect(3,10.2,8,1.3)}
   if(o.logo){g.fillStyle='rgba(255,255,255,.6)';circ(7,10.6,1.2,g);g.fill()}
   g.fillStyle=o.skin;g.beginPath();g.moveTo(5.6,7.4);g.lineTo(8.4,7.4);g.lineTo(7,9);g.closePath();g.fill();
@@ -383,8 +390,8 @@ function drawP(col,v,f,x,y,s,rot,alpha){
 function layout(){
   const r=cv.getBoundingClientRect(),D=Math.min(2,window.devicePixelRatio||1);
   W=r.width;H=r.height;cv.width=Math.round(W*D);cv.height=Math.round(H*D);ctx.setTransform(D,0,0,D,0,0);
-  RAD=Math.round(Math.min(84,W*.22,(H-360)*.3));CX=W/2;CY=RAD+18;
-  baysTop=CY+RAD+16;baysY=baysTop+bayH/2;lotTop=baysTop+bayH+14;
+  RAD=Math.round(Math.min(80,W*.21,(H-370)*.3));CX=W/2;CY=RAD+20;
+  baysTop=CY+RAD+22;baysY=baysTop+bayH/2;lotTop=baysTop+bayH+14;
   const aw=W-12,ah=H-lotTop-10;cell=Math.max(18,Math.floor(Math.min(aw/cols,ah/rows,64)));
   lotX=(W-cell*cols)/2;lotY=lotTop+Math.max(0,(ah-cell*rows)/2);
   renderBg();
@@ -406,7 +413,7 @@ function renderBg(){
   ctx.fillStyle=lawn;rr(0,0,W,baysTop-4,16);ctx.fill();
   for(let i=0;i<700;i++){ctx.fillStyle=R0()<.5?'rgba(80,160,100,.18)':'rgba(0,0,0,.15)';ctx.fillRect(R0()*W,R0()*(baysTop-6),1.2,1.6)}
   // sidewalk band
-  const by0=CY-31,by1=CY+31;
+  const by0=CY-40,by1=CY+36;
   ctx.fillStyle='#3a4256';ctx.fillRect(0,by0,W,by1-by0);
   ctx.strokeStyle='rgba(0,0,0,.2)';ctx.lineWidth=1;ctx.beginPath();
   for(let x=0;x<W;x+=14){ctx.moveTo(x,by0);ctx.lineTo(x,by1)}
@@ -417,6 +424,11 @@ function renderBg(){
   // arrows painted on sidewalk pointing to the circle
   ctx.fillStyle='rgba(255,210,63,.22)';
   for(const s of [-1,1])for(let k=0;k<3;k++){const x=CX+s*(RAD+30+k*34);ctx.beginPath();ctx.moveTo(x-s*6,CY-6);ctx.lineTo(x+s*2,CY);ctx.lineTo(x-s*6,CY+6);ctx.lineTo(x-s*3,CY);ctx.closePath();ctx.fill()}
+  // queue ropes with posts
+  for(const s of [-1,1])for(const y of [by0+4,by1-4]){const x0=CX+s*(RAD+10),x1=s<0?2:W-2;
+    ctx.strokeStyle='rgba(200,40,60,.7)';ctx.lineWidth=1.6;ctx.beginPath();
+    for(let x=x0;s<0?x>x1:x<x1;x+=s*34){const xn=x+s*34;ctx.moveTo(x,y);ctx.quadraticCurveTo(x+s*17,y+4,xn,y)}ctx.stroke();
+    for(let x=x0;s<0?x>x1:x<x1;x+=s*34){ctx.fillStyle='#c9ced9';circ(x,y,2.2);ctx.fill()}}
   // trees and lamps
   const tr=Math.min(16,RAD*.2);
   [[tr+4,tr+2],[W-tr-4,tr+4],[tr+8,by1+tr+10],[W-tr-8,by1+tr+8],[CX-RAD-tr-26,tr+2],[CX+RAD+tr+26,by1+tr+12]].forEach(([x,y],i)=>{if(y+tr<baysTop-4)drawTree(x,y,tr*(i%2?.9:1))});
@@ -432,6 +444,9 @@ function renderBg(){
   for(const f of [.42,.58,.72,.86]){circ(CX,CY,RAD*f);ctx.stroke()}
   ctx.beginPath();for(let i=0;i<24;i++){const a=i/24*Math.PI*2;ctx.moveTo(CX+Math.cos(a)*RAD*.42,CY+Math.sin(a)*RAD*.42);ctx.lineTo(CX+Math.cos(a)*RAD,CY+Math.sin(a)*RAD)}ctx.stroke();
   ctx.fillStyle='rgba(255,210,63,.55)';for(let i=0;i<32;i++){const a=i/32*Math.PI*2;circ(CX+Math.cos(a)*(RAD+4.5),CY+Math.sin(a)*(RAD+4.5),1);ctx.fill()}
+  // openings: entrances left and right, exit gate at the bottom
+  ctx.fillStyle='#3a4256';rr(CX-RAD-10,CY-16,14,36,3);ctx.fill();rr(CX+RAD-4,CY-16,14,36,3);ctx.fill();
+  ctx.fillStyle='#2f3649';rr(CX-13,CY+RAD-4,26,14,2);ctx.fill();
   // fountain basin
   ctx.fillStyle='rgba(0,0,0,.35)';circ(CX+2,CY+3,RAD*.33);ctx.fill();
   const bas=ctx.createRadialGradient(CX,CY-RAD*.1,0,CX,CY,RAD*.33);bas.addColorStop(0,'#a3acc6');bas.addColorStop(1,'#717a96');
@@ -511,32 +526,48 @@ cv.addEventListener('pointerdown',e=>{
 function startFly(b,x,y,a,sz,crane){Object.assign(b,{state:'fly',fx:x,fy:y,fa:a,fL:sz.L,fW:sz.Wd,ft:0,fd:crane?.7:.45,crane:!!crane})}
 
 // ================= CROWD =================
-function sideCols(){return Math.max(2,Math.floor((W/2-RAD-14)/10.5))}
-function crowdTarget(side,k){
-  const dir=side?1:-1,col=Math.floor(k/3),row=k%3,j=((k*7919)%11)/11-.5;
-  return{x:CX+dir*(RAD+14+col*10.5+j*3),y:CY-1+(row-1)*16+(col%2)*5+j*3};
+const COLW=13.5,PS=1.32,GATE=Math.PI/2,TAU=Math.PI*2;
+function sideCols(){return Math.max(2,Math.floor((W/2-RAD-16)/COLW))}
+function crowdTarget(side,col,row,k){
+  const dir=side?1:-1,j=((k*7919)%11)/11-.5;
+  return{x:CX+dir*(RAD+17+col*COLW+j*1.5),y:CY+9+(row-1)*17+j};
 }
+function gatePos(){return{x:CX,y:CY+RAD+12}}
 function updateCrowd(dt){
-  const cnt=[0,0];
-  for(const p of queue){const k=cnt[p.side]++,t=crowdTarget(p.side,k);
+  // each colour group starts a new column, so the queues read as colour bands
+  const cnt=[0,0],col=[0,0],row=[0,0],prev=[null,null];
+  for(const p of queue){const sd=p.side,k=cnt[sd]++;
+    if(prev[sd]!==null&&prev[sd]!==p.c&&row[sd]>0){col[sd]++;row[sd]=0}
+    prev[sd]=p.c;p.col=col[sd];const t=crowdTarget(sd,col[sd],row[sd],k);
+    if(++row[sd]>=3){row[sd]=0;col[sd]++}
     if(!p.init){p.init=true;p.x=t.x+(p.side?1:-1)*(40+Math.random()*W*.5);p.y=t.y}
     const dx=t.x-p.x,dy=t.y-p.y;p.x+=dx*Math.min(1,dt*7);p.y+=dy*Math.min(1,dt*7);p.mv=Math.abs(dx)+Math.abs(dy)>1.2}
   if(state==='play'||state==='win'){
     entryT-=dt;
     while(entryT<=0&&queue.length&&pool.length<POOL){
-      const p=queue.shift(),a=(p.side?0:Math.PI)+(Math.random()-.5)*.8;
-      pool.push({c:p.c,v:p.v,ph:p.ph,x:p.x,y:p.y,sx:p.x,sy:p.y,a,r:RAD*(.42+Math.random()*.48),w:.55+Math.random()*.35,t:0});
+      const p=queue.shift(),a=(p.side?0:Math.PI)+(Math.random()-.5)*1.4;
+      pool.push({c:p.c,v:p.v,ph:p.ph,x:p.x,y:p.y,sx:p.x,sy:p.y,a,r:RAD*(.42+Math.random()*.42),w:1+Math.random()*.7,t:0});
       entryT+=.028;
     }
     if(entryT<0)entryT=0;
   }
-  for(const p of pool){p.a+=p.w*dt;const tx=CX+Math.cos(p.a)*p.r,ty=CY+Math.sin(p.a)*p.r+6;
-    if(p.t<1){p.t=Math.min(1,p.t+dt/.4);const k=ease(p.t);p.x=p.sx+(tx-p.sx)*k;p.y=p.sy+(ty-p.sy)*k}else{p.x=tx;p.y=ty}}
+  // everyone circles clockwise; a person may only leave through the gate at the bottom
+  for(let i=pool.length-1;i>=0;i--){const p=pool[i],a0=p.a;p.a+=p.w*dt;const tx=CX+Math.cos(p.a)*p.r,ty=CY+Math.sin(p.a)*p.r+9;
+    if(p.t<1){p.t=Math.min(1,p.t+dt/.4);const k=ease(p.t);p.x=p.sx+(tx-p.sx)*k;p.y=p.sy+(ty-p.sy)*k;continue}
+    p.x=tx;p.y=ty;
+    if(state!=='play'||Math.floor((a0-GATE)/TAU)===Math.floor((p.a-GATE)/TAU))continue;
+    let best=null;
+    for(const b of bays)if(b&&b.state==='bay'&&b.leaveDelay==null&&b.color===p.c&&b.filled+b.pending<b.cap&&(!best||b.filled+b.pending>best.filled+best.pending))best=b;
+    if(!best)continue;
+    pool.splice(i,1);best.pending++;gateT=.3;
+    flights.push({c:p.c,v:p.v,x0:p.x,y0:p.y,bus:best,t:0,spin:(Math.random()<.5?-1:1)*(2+Math.random()*3)});
+    combo++;comboT=.9;if(boardSndT<=0){sfx.board(combo);boardSndT=.045}
+  }
 }
 
 // ================= UPDATE =================
 function update(dt){
-  bayShake=Math.max(0,bayShake-dt);shakeT=Math.max(0,shakeT-dt);boardSndT-=dt;
+  bayShake=Math.max(0,bayShake-dt);shakeT=Math.max(0,shakeT-dt);boardSndT-=dt;gateT=Math.max(0,gateT-dt);
   updateCrowd(dt);
   for(const b of buses){
     b.pop=Math.max(0,b.pop-dt*3);b.sq=Math.max(0,b.sq-dt*2.5);
@@ -554,20 +585,10 @@ function update(dt){
     }else if(b.state==='bay'){
       if(b.leaveDelay!=null){b.leaveDelay-=dt;if(b.leaveDelay<=0){b.leaveDelay=null;b.state='leave';b.lt=0;bays[b.bay]=null;
         save.coins+=1;updateHud();const p=bayPos(b.bay);floatText(p.x,baysTop+6,'+1','#ffd23f');sfx.depart();sparks(p.x,p.y,'#ffd23f',12)}}
-      else if(state==='play'&&b.filled+b.pending<b.cap){
-        b.bt-=dt;
-        if(b.bt<=0){
-          let best=-1,bd=1e9;const p0=bayPos(b.bay);
-          pool.forEach((p,i)=>{if(p.c===b.color&&p.t>=1){const d=Math.abs(p.x-p0.x)+(p.y<CY?40:0);if(d<bd){bd=d;best=i}}});
-          if(best>=0){const p=pool.splice(best,1)[0];b.pending++;b.bt=.05;
-            flights.push({c:p.c,v:p.v,x0:p.x,y0:p.y,bus:b,t:0,spin:(Math.random()<.5?-1:1)*(2+Math.random()*3)});
-            combo++;comboT=.6;if(boardSndT<=0){sfx.board(combo);boardSndT=.045}}
-        }
-      }
     }else if(b.state==='leave'){b.lt+=dt;if(b.lt>.7)b.state='gone'}
   }
   comboT-=dt;if(comboT<=0){if(combo>=25)floatText(CX,CY-RAD-2,'Super ×'+combo,'#ffd23f',true);combo=0}
-  for(let i=flights.length-1;i>=0;i--){const f=flights[i];f.t+=dt/.34;
+  for(let i=flights.length-1;i>=0;i--){const f=flights[i];f.t+=dt/.55;
     if(f.t>=1){const b=f.bus;b.pending--;b.filled++;b.sq=.22;flights.splice(i,1);if(b.filled>=b.cap)b.leaveDelay=.25}}
   for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.vy+=(p.g||0)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.vr)p.r+=p.vr*dt;p.life-=dt;if(p.life<=0)parts.splice(i,1)}
   for(let i=floats.length-1;i>=0;i--){floats[i].t+=dt*(floats[i].big?.7:1);if(floats[i].t>1)floats.splice(i,1)}
@@ -678,15 +699,21 @@ function draw(t){
   const fillK=pool.length/POOL,danger=pool.length>=POOL&&bays.every(b=>b)&&!canBoardAny();
   ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=4;circ(CX,CY,RAD+4.5);ctx.stroke();
   if(fillK>0){ctx.strokeStyle=danger?`rgba(255,77,94,${.6+.4*Math.sin(t/90)})`:(fillK>.85?'#ffb020':'#ffd23f');ctx.lineWidth=4;ctx.beginPath();ctx.arc(CX,CY,RAD+4.5,-Math.PI/2,-Math.PI/2+fillK*Math.PI*2);ctx.stroke()}
+  // exit gate at the bottom of the circle
+  {const gx=CX,gy=CY+RAD,open=Math.min(1,gateT/.12),dw=12*(1-open*.85);
+    ctx.fillStyle='#232838';rr(gx-21,gy-6,8,14,2.5);ctx.fill();rr(gx+13,gy-6,8,14,2.5);ctx.fill();
+    ctx.fillStyle=gateT>0?'#7dffb5':'#2ec27e';circ(gx-17,gy-6,2.3);ctx.fill();circ(gx+17,gy-6,2.3);ctx.fill();
+    ctx.fillStyle='rgba(170,215,255,.6)';rr(gx-13,gy-1,dw,6,1.5);ctx.fill();rr(gx+13-dw,gy-1,dw,6,1.5);ctx.fill();
+    ctx.fillStyle='#2ec27e';ctx.beginPath();ctx.moveTo(gx-6,gy+12);ctx.lineTo(gx+6,gy+12);ctx.lineTo(gx,gy+18);ctx.closePath();ctx.fill()}
   // people (crowd + circle), depth sorted
-  const vis=sideCols()*3,cnt=[0,0],people=[];
-  for(const p of queue){const k=cnt[p.side]++;if(k<vis+3&&p.x>-12&&p.x<W+12)people.push(p)}
+  const vis=sideCols(),cnt=[0,0],people=[];
+  for(const p of queue){if(p.col>=vis)cnt[p.side]++;else if(p.x>-12&&p.x<W+12)people.push(p)}
   for(const p of pool)people.push(p);
   people.sort((a,b)=>a.y-b.y);
-  for(const p of people){const inPool=p.r!=null,mv=inPool||p.mv,f=mv?Math.floor(t/(inPool?120:95)+p.ph):Math.floor(t/420+p.ph);drawP(p.c,p.v,mv?f:(f%2?2:0),p.x,p.y,.95)}
+  for(const p of people){const inPool=p.r!=null,mv=inPool||p.mv,f=mv?Math.floor(t/(inPool?120:95)+p.ph):Math.floor(t/420+p.ph);drawP(p.c,p.v,mv?f:(f%2?2:0),p.x,p.y,PS)}
   // crowd counters
-  for(const s of [0,1]){const extra=Math.max(0,cnt[s]-vis);if(!extra)continue;
-    const x=s?W-24:24,y=CY-40;ctx.fillStyle='rgba(12,15,22,.85)';rr(x-20,y-10,40,20,10);ctx.fill();
+  for(const s of [0,1]){const extra=cnt[s];if(!extra)continue;
+    const x=s?W-24:24,y=CY-54;ctx.fillStyle='rgba(12,15,22,.85)';rr(x-20,y-10,40,20,10);ctx.fill();
     ctx.fillStyle='#fff';ctx.font='800 11px Rubik, system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('+'+extra,x,y+.5)}
   // progress
   const prog=totalPax?1-(queue.length+pool.length)/totalPax:0;
@@ -714,8 +741,11 @@ function draw(t){
       drawBus(b,bx,by,b.fa+da*k,b.fL+(bs.L-b.fL)*k,b.fW+(bs.Wd-b.fW)*k,1,k>.6?'seats':'arrow')}
   }
   // people dropping into buses
-  for(const f of flights){const p=bayPos(f.bus.bay),k=f.t,ex=p.x,ey=p.y-8,kk=ease(k);
-    const x=f.x0+(ex-f.x0)*kk,y=f.y0+(ey-f.y0)*k*k-Math.sin(Math.PI*k)*22;drawP(f.c,f.v,1,x,y,.95-.4*k,f.spin*k,1-.2*k)}
+  const gp=gatePos();
+  for(const f of flights){const p=bayPos(f.bus.bay);let x,y,s,rot=0,fr=Math.floor(t/90);
+    if(f.t<.4){const k=ease(f.t/.4);x=f.x0+(gp.x-f.x0)*k;y=f.y0+(gp.y-f.y0)*k;s=PS}
+    else{const k=(f.t-.4)/.6;x=gp.x+(p.x-gp.x)*ease(k);y=gp.y+(p.y-6-gp.y)*k*k-Math.sin(Math.PI*k)*26;s=PS-.55*k;rot=f.spin*k;fr=1}
+    drawP(f.c,f.v,fr,x,y,s,rot,1)}
   // particles
   for(const p of parts){const a=Math.max(0,p.life/(p.max||1));
     if(p.k==='rect'){ctx.save();ctx.globalAlpha=Math.min(1,a*2);ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-4*p.s,-2.5*p.s,8*p.s,5*p.s);ctx.restore()}
@@ -826,8 +856,8 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);d
 makeSprites();genLevel(save.level);layout();updateHud();requestAnimationFrame(frame);
 showOv(`<div class="card"><h1>Peron Panika</h1><ol>
 <li>Tapni autobus da izađe s parkinga u smjeru strelice i stane na peron.</li>
-<li>Gomile putnika s lijeve i desne strane ulaze u krug i vrte se oko fontane.</li>
-<li>Putnici iskaču iz kruga u bus svoje boje. Ako je krug pun, a nijedan ne odgovara autobusima na peronima, gotovo je.</li></ol>
+<li>Putnici čekaju u dva reda, lijevo i desno, poredani u grupe po bojama, i ulaze u krug oko fontane.</li>
+<li>U krugu kruže i izlaze samo kroz vrata na dnu, pravo u bus svoje boje. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, gotovo je.</li></ol>
 <p>Kasnije stižu tajni autobusi, čunjevi, lanci s ključem, led i špica sa satom.</p>
 <div class="row"><button class="big" id="start">${save.level>1?'Nastavi · nivo '+save.level:'Kreni'}</button></div></div>`);
 </script>
