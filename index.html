@@ -74,6 +74,9 @@ button:focus-visible{outline:2px solid var(--paint);outline-offset:2px}
     <div class="pill timer" id="tmP" hidden><small>Špica</small><b id="tm">0:00</b></div>
     <div class="pill"><small>Nivo</small><b id="lv">1</b></div>
     <div class="pill coin"><b id="coins">120</b></div>
+    <button class="icon-btn" id="rst" aria-label="Restart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>
+    </button>
     <button class="icon-btn" id="snd" aria-label="Zvučni efekti">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path class="slash" d="M3 3l18 18"/></svg>
     </button>
@@ -799,6 +802,9 @@ ov.addEventListener('click',e=>{
   const id=e.target.id;
   if(id==='start'){audioUnlock();sfx.ui();musicStart();startLevel()}
   if(id==='go'){sfx.ui();startLevel()}
+  if(id==='rLevel'){sfx.ui();startLevel()}
+  if(id==='rAll'){sfx.ui();save.level=1;save.coins=120;save.seen={};persist();startLevel()}
+  if(id==='rBack'){sfx.ui();state=pausedFrom||'play';hideOv()}
   if(id==='play'){sfx.ui();save.seen[pendingIntro]=1;persist();state='play';hideOv()}
   if(id==='more'){addBay();state='play';hideOv()}
   if(id==='more20'){save.coins-=50;usedBoost=true;rushT+=20;lastTick=null;persist();updateHud();sfx.build();state='play';hideOv()}
@@ -820,6 +826,9 @@ document.getElementById('bSort').onclick=()=>{audioUnlock();if(state!=='play'||s
   if(callPeople()){save.coins-=30;usedBoost=true;persist();updateHud();sfx.sort();floatText(CX,CY-RAD+10,'Dozvani!','#ffd23f',true)}
   else{sfx.bump();floatText(CX,CY-RAD+10,'Nema koga dozvati','#cdd3e0')}};
 document.getElementById('bRetry').onclick=()=>{audioUnlock();if(state==='play'||state==='lose'){sfx.ui();startLevel()}};
+let pausedFrom=null;
+document.getElementById('rst').onclick=()=>{audioUnlock();if(state!=='play'&&state!=='lose')return;sfx.ui();pausedFrom=state==='lose'?null:state;if(state==='play')state='pause';
+  showOv(`<div class="card"><h1>Restart</h1><p>Ponovi trenutni nivo ili počni cijelu igru od nivoa 1. Nova igra briše napredak i novčiće.</p><div class="row"><button class="big" id="rLevel">Ponovi nivo ${save.level}</button><button class="ghost" id="rAll">Nova igra</button></div>${pausedFrom?'<div class="row"><button class="ghost" id="rBack">Nazad u igru</button></div>':''}</div>`)};
 document.getElementById('snd').onclick=()=>{audioUnlock();save.sfxOff=!save.sfxOff;persist();updateHud();sfx.ui()};
 document.getElementById('mus').onclick=()=>{audioUnlock();save.musOff=!save.musOff;persist();updateHud();if(save.musOff)musicStop();else musicStart()};
 let lastTm='';
