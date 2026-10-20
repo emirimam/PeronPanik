@@ -1,6 +1,6 @@
 # Peron Panika
 
-Zarazna puzzle igra s autobusima. Tapni bus da izađe s parkinga i stane na peron. Putnici su kockice u boji i čekaju u dva reda grupisani po bojama. Krug se prvo puni iz lijevog reda kroz lijeva vrata, pa iz desnog kroz desna. Kockice kruže oko fontane i izlaze samo kroz vrata na dnu, pa u koloni klize do busa svoje boje. Tapni krug da se privremeno brže okreće. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, nivo je izgubljen.
+Zarazna puzzle igra s autobusima. Tapni bus da izađe s parkinga i stane na peron. Putnici su kockice u boji i čekaju u dva reda grupisani po bojama. Krug se prvo puni iz lijevog reda kroz lijeva vrata, pa iz desnog kroz desna. Kockice kruže oko fontane i izlaze samo kroz vrata na dnu, pa u koloni klize do busa svoje boje. Tapni krug za brzinu 1×, 2× ili 3×, igra je pamti. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, nivo je izgubljen.
 
 ## Prepreke kroz nivoe
 
@@ -12,9 +12,11 @@ Zarazna puzzle igra s autobusima. Tapni bus da izađe s parkinga i stane na pero
 | 5, 10, 15… | Špica | Nivo na vrijeme, muzika ubrzava |
 | 6 | Led | Broj pokazuje koliko autobusa mora otići da se led otopi |
 
-Pojačanja: **Dizalica** (40), **Dozovi** (30, dovodi potrebne putnike u krug), **+1 peron** (80), **+20 s** na špici (50).
+Standardno su 4 perona. Tap na zaključani peron kupuje 5. (60), 6. (90) i 7. (120) za taj nivo.
 
-Svaki nivo se generiše nasumično i provjerava solverom, pa uvijek ima rješenje sa 5 perona.
+Pojačanja: **Dizalica** (40), **Dozovi** (30, dovodi potrebne putnike u krug), **+20 s** na špici (50).
+
+Svaki nivo se generiše nasumično i provjerava solverom, pa uvijek ima rješenje sa 4 perona.
 
 ## Tehnički
 

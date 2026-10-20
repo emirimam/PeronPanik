@@ -43,7 +43,7 @@ body{background:var(--night);color:var(--chalk);font-family:var(--body);overflow
 .icon-btn.off{color:var(--muted)}
 .icon-btn.off .slash{display:block}
 canvas{flex:1;min-height:0;width:100%;display:block;touch-action:none}
-.bar{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding-block:6px 12px}
+.bar{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding-block:6px 12px}
 .bar button{background:linear-gradient(#232a3b,#1a2030);color:var(--chalk);border:2px solid transparent;border-radius:14px;padding:9px 4px;font:700 12.5px var(--body);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;transition:transform .1s;min-width:0;box-shadow:0 3px 0 #0b0e15}
 .bar button:active{transform:translateY(2px);box-shadow:0 1px 0 #0b0e15}
 .bar button small{color:var(--paint);font-weight:700;font-size:11px;font-variant-numeric:tabular-nums}
@@ -88,7 +88,6 @@ button:focus-visible{outline:2px solid var(--paint);outline-offset:2px}
   <div class="bar">
     <button id="bCrane">Dizalica<small>40</small></button>
     <button id="bSort">Dozovi<small>30</small></button>
-    <button id="bBay">+1 peron<small>80</small></button>
     <button id="bRetry">Ponovo<small>nivo</small></button>
   </div>
 </div>
@@ -103,7 +102,7 @@ const DIRS={R:[1,0,0],L:[-1,0,Math.PI],D:[0,1,Math.PI/2],U:[0,-1,-Math.PI/2]};
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let POOL=30;
 
-let save={level:1,coins:120,sfxOff:false,musOff:false,seen:{}};
+let save={level:1,coins:120,sfxOff:false,musOff:false,seen:{},spd:1};
 try{const s=JSON.parse(localStorage.getItem('peronpanika')||'null');if(s){save=Object.assign(save,s);if(s.muted&&s.sfxOff===undefined)save.sfxOff=true;save.seen=save.seen||{}}}catch(e){}
 function persist(){try{localStorage.setItem('peronpanika',JSON.stringify(save))}catch(e){}}
 
@@ -111,7 +110,7 @@ let W=380,H=700,cell=40,lotX=0,lotY=0,cols=6,rows=7,CX=190,CY=100,RAD=84,baysTop
 const bayH=96;
 let buses=[],queue=[],pool=[],bays=[],flights=[],parts=[],floats=[],cones=[];
 let state='menu',combo=0,comboT=0,craneArmed=false,bayBought=false,bayShake=0,totalPax=0,entryT=0,boardSndT=0,shakeT=0,gateT=0;
-let rush=false,rushT=0,lastTick=null,usedBoost=false,pid=0;
+let unlocked=4,rush=false,rushT=0,lastTick=null,usedBoost=false,pid=0;
 
 // ================= AUDIO =================
 const A={ctx:null};
@@ -289,18 +288,18 @@ function genLevel(n){
   }
   const nMys=n>=2?Math.min(1+Math.floor(n/4),4):0;
   buses.filter(b=>b.lockBy==null&&b.key==null&&!b.ice&&!freeDist(b).clear).sort(()=>Math.random()-.5).slice(0,nMys).forEach(b=>b.hidden=true);
-  POOL=Math.max(14,30-Math.floor(n*1.3));
+  POOL=Math.max(18,30-n);
   // crowd: colour groups follow the exit order, shuffled in a sliding window, then dealt to the left and right queues
   const chunks=[];placed.slice().reverse().forEach(b=>{let left=b.cap;while(left>0){const s=Math.min(left,ri(4,8));chunks.push({c:b.color,n:s});left-=s}});
   let win=Math.min(2+n,16),q=interleave(chunks);
   for(let tr=0;tr<14;tr++){
     if(tr&&tr%4===0)win=Math.max(0,Math.floor(win/2));
     const cs=chunks.slice();for(let i=0;i<cs.length;i++){const j=Math.min(cs.length-1,i+ri(0,win));[cs[i],cs[j]]=[cs[j],cs[i]]}
-    const order=interleave(cs);queue=order;if(solvable(5,POOL,12000)===true){q=order;break}
+    const order=interleave(cs);queue=order;if(solvable(4,POOL,12000)===true){q=order;break}
   }
   queue=q.map(o=>({c:o.c,side:o.side,v:ri(0,7),ph:Math.random()*4,id:pid++,x:-99,y:-99,d:0,init:false}));makeSlots();
   totalPax=queue.length;pool=[];
-  bays=new Array(5).fill(null);bayBought=false;craneArmed=false;usedBoost=false;
+  bays=new Array(7).fill(null);unlocked=4;craneArmed=false;usedBoost=false;
   rush=n%5===0;rushT=rush?Math.round(30+N*7):0;lastTick=null;
   flights=[];floats=[];parts=[];entryT=.5;combo=0;
 }
@@ -439,10 +438,10 @@ function renderBg(){
   const sw=slotW();
   bays.forEach((_,i)=>{const p=bayPos(i);
     ctx.fillStyle='rgba(0,0,0,.18)';rr(p.x-sw/2+5,baysTop+14,sw-10,bayH-20,8);ctx.fill();
-    ctx.strokeStyle=i>=5?'rgba(46,194,126,.7)':'rgba(255,255,255,.28)';ctx.lineWidth=2;
+    ctx.strokeStyle=i>=4&&i<unlocked?'rgba(46,194,126,.7)':'rgba(255,255,255,.28)';ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(p.x-sw/2+5,baysTop+14);ctx.lineTo(p.x-sw/2+5,baysTop+bayH-6);ctx.lineTo(p.x+sw/2-5,baysTop+bayH-6);ctx.lineTo(p.x+sw/2-5,baysTop+14);ctx.stroke();
     ctx.fillStyle='#1b2030';rr(p.x-11,baysTop+bayH-15,22,12,4);ctx.fill();
-    ctx.fillStyle=i>=5?'#2ec27e':'#ffd23f';ctx.font='800 8.5px Rubik, system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('P'+(i+1),p.x,baysTop+bayH-8.6)});
+    ctx.fillStyle=i>=4&&i<unlocked?'#2ec27e':'#ffd23f';ctx.font='800 8.5px Rubik, system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('P'+(i+1),p.x,baysTop+bayH-8.6)});
   // parking lot
   const lx=lotX-8,ly=lotY-8,lw=cols*cell+16,lh=rows*cell+16;
   ctx.fillStyle='rgba(0,0,0,.4)';rr(lx+2,ly+4,lw,lh,14);ctx.fill();
@@ -487,12 +486,13 @@ cv.addEventListener('pointerdown',e=>{
   audioUnlock();
   if(state!=='play')return;
   const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
-  if(Math.hypot(px-CX,py-CY)<=RAD+10){boostT=Math.min(6,boostT+2.5);sfx.whoosh();buzz(8);
-    if(ringMul<1.5)floatText(CX,CY-RAD*.45,'Brže!','#7fe3ff',true);for(let i=0;i<6;i++){const a=Math.random()*TAU;sparks(CX+Math.cos(a)*RAD*.9,CY+Math.sin(a)*RAD*.9,'#7fe3ff',2)}return}
+  if(Math.hypot(px-CX,py-CY)<=RAD+10){save.spd=(save.spd||1)%3+1;persist();sfx.whoosh();buzz(8);
+    floatText(CX,CY-RAD*.45,save.spd===1?'Normalno 1×':'Brzina '+save.spd+'×',save.spd===1?'#cdd3e0':'#7fe3ff',true);for(let i=0;i<6;i++){const a=Math.random()*TAU;sparks(CX+Math.cos(a)*RAD*.9,CY+Math.sin(a)*RAD*.9,'#7fe3ff',2)}return}
+  if(py>=baysTop&&py<=baysTop+bayH)for(let i=unlocked;i<bays.length;i++){if(Math.abs(px-bayPos(i).x)<=slotW()/2){tryBuyBay();return}}
   const cx=Math.floor((px-lotX)/cell),cy=Math.floor((py-lotY)/cell);
   const b=buses.find(b=>b.state==='lot'&&cellsOf(b).some(([x,y])=>x===cx&&y===cy));
   if(!b)return;
-  const c=lotCenter(b),slot=bays.indexOf(null);
+  const c=lotCenter(b),slot=freeSlot();
   if(slot<0){bayShake=.35;shakeT=.15;sfx.full();buzz(40);floatText(W/2,baysTop+8,'Peroni puni!','#ff4d5e');return}
   if(craneArmed){
     craneArmed=false;save.coins-=40;usedBoost=true;persist();updateHud();
@@ -532,7 +532,7 @@ function updateCrowd(dt){
     if(!p.init){p.init=true;p.d=tgt+180+Math.random()*60}
     const diff=tgt-p.d,st=WALK*dt,step=diff*Math.min(1,dt*5);p.d+=Math.max(-st,Math.min(st,step));
     const pt=pathAt(sd,p.d);p.x=pt.x;p.y=pt.y}
-  boostT=Math.max(0,boostT-dt);ringMul+=((boostT>0?2.6:1)-ringMul)*Math.min(1,dt*4);
+  ringMul+=((save.spd||1)-ringMul)*Math.min(1,dt*4);
   const T0=ringT;ringT+=dt*ringMul;const open=state==='play'||state==='win';
   for(const s of slots){const r=laneR(s.lane),w=RING_V/r,a0=s.ph+w*T0,a1=s.ph+w*ringT,x=CX+Math.cos(a1)*r,y=CY+Math.sin(a1)*r+6,p=s.occ;
     if(p){
@@ -595,7 +595,7 @@ function checkEnd(){
     if(buses.every(b=>b.state==='gone'))winLevel();return}
   if(moving)return;
   if(queue.length&&pool.length<POOL)return;
-  if(bays.every(b=>b)&&!canBoardAny())loseLevel('full');
+  if(baysFull()&&!canBoardAny())loseLevel('full');
 }
 
 // ================= DRAW =================
@@ -688,11 +688,14 @@ function draw(t){
   for(let i=0;i<3;i++){const ph=((t/1600)+i/3)%1;ctx.strokeStyle=`rgba(210,240,255,${(1-ph)*.55})`;ctx.lineWidth=1.3;circ(CX,CY,wr*.15+ph*wr*.8);ctx.stroke()}
   ctx.fillStyle='rgba(255,255,255,.85)';circ(CX,CY,2.5+Math.sin(t/140)*.8);ctx.fill();
   for(let i=0;i<8;i++){const a=i/8*Math.PI*2+t/900,d=wr*(.3+.25*((t/400+i*.37)%1));ctx.fillStyle='rgba(220,245,255,.7)';circ(CX+Math.cos(a)*d,CY+Math.sin(a)*d,1);ctx.fill()}
+  // speed badge on the fountain (tap the circle to change it)
+  {const sp=save.spd||1;ctx.fillStyle='rgba(10,13,20,.55)';rr(CX-13,CY-8,26,16,8);ctx.fill();
+    ctx.fillStyle=sp>1?'#7fe3ff':'#e6ebf3';ctx.font='800 10.5px Rubik, system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(sp+'×',CX,CY+.5)}
   // speed streaks while the circle is boosted
   if(ringMul>1.05){const k=Math.min(1,(ringMul-1)/1.6);ctx.lineCap='round';
     for(let i=0;i<4;i++){const a=t/1000*ringMul*1.6+i*TAU/4;ctx.strokeStyle=`rgba(127,227,255,${.35*k})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(CX,CY,RAD-4,a,a+.5);ctx.stroke()}}
   // circle fill gauge
-  const fillK=pool.length/POOL,danger=pool.length>=POOL&&bays.every(b=>b)&&!canBoardAny();
+  const fillK=pool.length/POOL,danger=pool.length>=POOL&&baysFull()&&!canBoardAny();
   ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=4;circ(CX,CY,RAD+4.5);ctx.stroke();
   if(fillK>0){ctx.strokeStyle=ringMul>1.3&&!danger?'#7fe3ff':danger?`rgba(255,77,94,${.6+.4*Math.sin(t/90)})`:(fillK>.85?'#ffb020':'#ffd23f');ctx.lineWidth=4;ctx.beginPath();ctx.arc(CX,CY,RAD+4.5,-Math.PI/2,-Math.PI/2+fillK*Math.PI*2);ctx.stroke()}
   // doors: entrances left and right, exit gate at the bottom
@@ -719,6 +722,16 @@ function draw(t){
     if(b.state==='bay'){const p=bayPos(b.bay);drawBus(b,p.x+sx,p.y,-Math.PI/2,bs.L,bs.Wd,1,'seats')}
     else if(b.state==='leave'){const p=bayPos(b.bay),k=b.lt/.7;drawBus(b,p.x,p.y-k*k*170,-Math.PI/2,bs.L,bs.Wd,1-k,'seats')}
   }
+  // locked platforms: tap the next one to buy it
+  for(let i=unlocked;i<bays.length;i++){const p=bayPos(i),sw=slotW(),pr=BAY_PRICE[i-4],next=i===unlocked,afford=next&&save.coins>=pr;
+    ctx.fillStyle='rgba(10,13,20,.66)';rr(p.x-sw/2+4,baysTop+13,sw-8,bayH-17,8);ctx.fill();
+    if(afford){ctx.strokeStyle=`rgba(255,210,63,${.45+.35*Math.sin(t/220)})`;ctx.lineWidth=2;rr(p.x-sw/2+4,baysTop+13,sw-8,bayH-17,8);ctx.stroke()}
+    const lc=next?'#ffd23f':'#6b7488',ly=baysY-12;
+    ctx.strokeStyle=lc;ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(p.x,ly-3,6,Math.PI,0);ctx.stroke();
+    ctx.fillStyle=lc;rr(p.x-8,ly-3,16,12,3);ctx.fill();ctx.fillStyle='#141925';circ(p.x,ly+2.5,2);ctx.fill();
+    ctx.fillStyle=next?'#1b2030':'rgba(27,32,48,.6)';rr(p.x-19,baysY+8,38,16,8);ctx.fill();
+    ctx.fillStyle=next?'#ffd23f':'#6b7488';circ(p.x-10,baysY+16,4);ctx.fill();
+    ctx.fillStyle=next?'#fff':'#8c96ad';ctx.font='800 10px Rubik, system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(pr,p.x+4,baysY+16.5)}
   // lot
   for(const [x,y] of cones)drawCone(lotX+(x+.5)*cell,lotY+(y+.5)*cell,cell*.34);
   const pulse=craneArmed?.65+.35*Math.sin(t/120):1;
@@ -794,8 +807,8 @@ function loseLevel(why){
     const can=save.coins>=50;
     showOv(`<div class="card"><h1>Vrijeme je isteklo</h1><p>Špica je prošla, a na stanici još čeka <b>${queue.length+pool.length}</b> putnika.</p><div class="row">${can?'<button class="big" id="more20">+20 s · 50</button>':''}<button class="${can?'ghost':'big'}" id="go">Ponovi nivo</button></div></div>`);
   }else{
-    const can=!bayBought&&save.coins>=80;
-    showOv(`<div class="card"><h1>Gužva na stanici</h1><p>Krug je pun, svi peroni su zauzeti, a nijedan putnik u krugu ne odgovara autobusima na peronima.</p><div class="row">${can?'<button class="big" id="more">+1 peron · 80</button>':''}<button class="${can?'ghost':'big'}" id="go">Ponovi nivo</button></div></div>`);
+    const pr=bayPrice(),can=pr&&save.coins>=pr;
+    showOv(`<div class="card"><h1>Gužva na stanici</h1><p>Krug je pun, svi peroni su zauzeti, a nijedan putnik u krugu ne odgovara autobusima na peronima.</p><div class="row">${can?'<button class="big" id="more">+1 peron · '+pr+'</button>':''}<button class="${can?'ghost':'big'}" id="go">Ponovi nivo</button></div></div>`);
   }
 }
 ov.addEventListener('click',e=>{
@@ -806,10 +819,16 @@ ov.addEventListener('click',e=>{
   if(id==='rAll'){sfx.ui();save.level=1;save.coins=120;save.seen={};persist();startLevel()}
   if(id==='rBack'){sfx.ui();state=pausedFrom||'play';hideOv()}
   if(id==='play'){sfx.ui();save.seen[pendingIntro]=1;persist();state='play';hideOv()}
-  if(id==='more'){addBay();state='play';hideOv()}
+  if(id==='more'){state='play';tryBuyBay();hideOv()}
   if(id==='more20'){save.coins-=50;usedBoost=true;rushT+=20;lastTick=null;persist();updateHud();sfx.build();state='play';hideOv()}
 });
-function addBay(){if(bayBought||save.coins<80)return;save.coins-=80;bayBought=true;usedBoost=true;bays.push(null);persist();updateHud();renderBg();sfx.build()}
+const BAY_PRICE=[60,90,120];
+function freeSlot(){for(let i=0;i<unlocked;i++)if(!bays[i])return i;return -1}
+function baysFull(){return freeSlot()<0}
+function bayPrice(){return unlocked<bays.length?BAY_PRICE[unlocked-4]:0}
+function tryBuyBay(){const pr=bayPrice();if(!pr)return;const p=bayPos(unlocked);
+  if(save.coins<pr){sfx.bump();floatText(p.x,baysY,'Treba '+pr,'#ff8a96');return}
+  save.coins-=pr;unlocked++;usedBoost=true;persist();updateHud();renderBg();sfx.build();sparks(p.x,baysY,'#2ec27e',14);floatText(p.x,baysTop+10,'Novi peron!','#7dffb5')}
 function callPeople(){
   const need={};bays.forEach(b=>{if(b&&b.state==='bay'&&b.leaveDelay==null)need[b.color]=(need[b.color]||0)+b.cap-b.filled-b.pending});
   pool.forEach(p=>{if(need[p.c]>0)need[p.c]--});
@@ -820,7 +839,6 @@ function callPeople(){
   let out=0;for(let i=pool.length-1;i>=0&&out<front.length;i--){const p=pool[i];if(!bays.some(b=>b&&b.state==='bay'&&b.color===p.c)){pool.splice(i,1);if(p.slot)p.slot.occ=null;queue.push({c:p.c,side:p.x<CX?0:1,v:p.v,ph:p.ph,id:pid++,x:-99,y:-99,d:0,init:false});out++}}
   return true;
 }
-document.getElementById('bBay').onclick=()=>{audioUnlock();if(state==='play')addBay()};
 document.getElementById('bCrane').onclick=()=>{audioUnlock();if(state!=='play')return;if(craneArmed)craneArmed=false;else if(save.coins>=40){craneArmed=true;sfx.ui()}updateHud()};
 document.getElementById('bSort').onclick=()=>{audioUnlock();if(state!=='play'||save.coins<30)return;
   if(callPeople()){save.coins-=30;usedBoost=true;persist();updateHud();sfx.sort();floatText(CX,CY-RAD+10,'Dozvani!','#ffd23f',true)}
@@ -843,7 +861,6 @@ function updateHud(){
   const bc=document.getElementById('bCrane');bc.classList.toggle('armed',craneArmed);bc.disabled=!craneArmed&&save.coins<40;
   bc.firstChild.textContent=craneArmed?'Odaberi':'Dizalica';
   document.getElementById('bSort').disabled=save.coins<30;
-  document.getElementById('bBay').disabled=bayBought||save.coins<80;
 }
 
 let last=performance.now();
@@ -852,8 +869,8 @@ makeSprites();genLevel(save.level);layout();updateHud();requestAnimationFrame(fr
 showOv(`<div class="card"><h1>Peron Panika</h1><ol>
 <li>Tapni autobus da izađe s parkinga u smjeru strelice i stane na peron.</li>
 <li>Putnici (kockice u boji) čekaju u dva reda grupisani po bojama. Krug se prvo puni iz lijevog reda kroz lijeva vrata, pa iz desnog kroz desna.</li>
-<li>Kockice kruže oko fontane i izlaze samo kroz vrata na dnu, pa u koloni klize do busa svoje boje. Tapni krug da se brže okreće. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, gotovo je.</li></ol>
-<p>Kasnije stižu tajni autobusi, čunjevi, lanci s ključem, led i špica sa satom.</p>
+<li>Kockice kruže oko fontane i izlaze samo kroz vrata na dnu, pa u koloni klize do busa svoje boje. Tapni krug za brzinu 1×, 2× ili 3×, igra je pamti. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, gotovo je.</li></ol>
+<p>Imaš 4 perona. Tapni zaključani peron da kupiš 5., 6. ili 7. za taj nivo. Kasnije stižu tajni autobusi, čunjevi, lanci s ključem, led i špica sa satom.</p>
 <div class="row"><button class="big" id="start">${save.level>1?'Nastavi · nivo '+save.level:'Kreni'}</button></div></div>`);
 </script>
 
