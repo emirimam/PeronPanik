@@ -1,6 +1,6 @@
 # Peron Panika
 
-Zarazna puzzle igra s autobusima. Tapni bus da izađe s parkinga i stane na peron. Putnici čekaju u dva reda, lijevo i desno, poredani u grupe po bojama. Ulaze u centralni krug, kruže oko fontane i izlaze samo kroz vrata na dnu, pravo u bus svoje boje. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, nivo je izgubljen.
+Zarazna puzzle igra s autobusima. Tapni bus da izađe s parkinga i stane na peron. Putnici čekaju u dva reda, lijevo i desno, poredani u grupe po bojama. Kroz lijeva i desna vrata ulaze u centralni krug, kruže oko fontane i izlaze samo kroz vrata na dnu, pa u koloni pješače do busa svoje boje. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, nivo je izgubljen.
 
 ## Prepreke kroz nivoe
 
