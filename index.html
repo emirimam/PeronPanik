@@ -297,12 +297,13 @@ function genLevel(n){
   queue=q.map(o=>({c:o.c,side:o.side,v:ri(0,7),ph:Math.random()*4,id:pid++,x:-99,y:-99,d:0,init:false}));makeSlots();
   totalPax=queue.length;pool=[];
   bays=new Array(5).fill(null);bayBought=false;craneArmed=false;usedBoost=false;
-  rush=n%5===0;rushT=rush?Math.round(25+N*5.5):0;lastTick=null;
+  rush=n%5===0;rushT=rush?Math.round(30+N*7):0;lastTick=null;
   flights=[];floats=[];parts=[];entryT=.5;combo=0;
 }
-// Colour groups alternate between the left and right queues; the circle takes them in this exact order.
+// The first half of the colour groups waits in the left queue, the rest in the right one; the circle empties the left queue first.
 function interleave(chunks){
-  const out=[];chunks.forEach((ch,i)=>{for(let k=0;k<ch.n;k++)out.push({c:ch.c,side:i%2})});
+  const total=chunks.reduce((a,c)=>a+c.n,0),out=[];let acc=0;
+  chunks.forEach(ch=>{const side=acc<total/2?0:1;acc+=ch.n;for(let k=0;k<ch.n;k++)out.push({c:ch.c,side})});
   return out;
 }
 // Depth-first search over which bus to pull next, with the crowd circle holding P people. true = a win exists, false = none, null = budget ran out.
@@ -337,51 +338,24 @@ function occ(){const g=new Array(cols*rows).fill(null);cones.forEach(([x,y])=>g[
 function freeDist(b){const g=occ();let [x,y]=frontOf(b);const [dx,dy]=DIRS[b.dir];let d=0;
   x+=dx;y+=dy;while(x>=0&&y>=0&&x<cols&&y<rows){if(g[y*cols+x])return{clear:false,d,hit:g[y*cols+x]};d++;x+=dx;y+=dy}return{clear:true,d}}
 
-// ================= PEOPLE SPRITES =================
-const SKIN=['#f6d3b8','#e9b78f','#c98d64','#8a5a3c'],HAIR=['#2b1d16','#5b3a22','#c99040','#1b1b22','#9c4a2a','#d8d2c8'],PANTS=['#2f3b5c','#3f5684','#1f232b','#6d5b3f','#4b5060'];
-const SPR={},SC=3,SW=14,SH=21;
+// ================= PASSENGER CUBES =================
+const SPR={},SC=3,SW=14,SH=17;
 function rng(seed){return()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646}}
-function drawPerson(g,col,o,f){
-  const leg=[0,1.3,0,-1.3][f],arm=[0,1.2,0,-1.2][f],bob=f%2?-.4:0;
-  g.globalAlpha=.6;g.fillStyle=col;g.beginPath();g.ellipse(7,19,5.8,1.9,0,0,7);g.fill();g.globalAlpha=1;g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(7,19,3.6,1.1,0,0,7);g.fill();
-  g.save();g.translate(0,bob);
-  g.fillStyle=o.pants;rr(4.3,13.2,2.5,5.6-Math.max(0,leg),1,g);g.fill();rr(7.2,13.2,2.5,5.6-Math.max(0,-leg),1,g);g.fill();
-  g.fillStyle='#22242b';rr(4,18.1-Math.max(0,leg),3,1.4,.6,g);g.fill();rr(7,18.1-Math.max(0,-leg),3,1.4,.6,g);g.fill();
-  if(o.bp){g.fillStyle='#7b5a3b';rr(2.2,7.6,9.6,6.2,2,g);g.fill();g.fillStyle='#5e432b';g.fillRect(2.4,11,9.2,1.1)}
-  const dark=shade(col,-.25);
-  g.fillStyle=dark;rr(1.5,8+arm,2.2,5,1.1,g);g.fill();rr(10.3,8-arm,2.2,5,1.1,g);g.fill();
-  g.fillStyle=o.skin;circ(2.6,13.3+arm,1.1,g);g.fill();circ(11.4,13.3-arm,1.1,g);g.fill();
-  const tg=g.createLinearGradient(3,0,11,0);tg.addColorStop(0,shade(col,.28));tg.addColorStop(.6,col);tg.addColorStop(1,shade(col,-.22));
-  g.fillStyle=tg;rr(3,7.4,8,7,2.6,g);g.fill();g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=.5;g.stroke();
-  if(o.stripe){g.fillStyle='rgba(255,255,255,.5)';g.fillRect(3,10.2,8,1.3)}
-  if(o.logo){g.fillStyle='rgba(255,255,255,.6)';circ(7,10.6,1.2,g);g.fill()}
-  g.fillStyle=o.skin;g.beginPath();g.moveTo(5.6,7.4);g.lineTo(8.4,7.4);g.lineTo(7,9);g.closePath();g.fill();
-  if(o.style===1){g.fillStyle=o.hair;rr(3.2,3,7.6,6.8,2.5,g);g.fill()}
-  g.fillStyle=o.skin;circ(7,5,3.5,g);g.fill();
-  g.fillStyle='rgba(0,0,0,.08)';g.beginPath();g.arc(7,5,3.5,-.4,Math.PI*.7);g.fill();
-  if(o.style===3){g.fillStyle=shade(col,-.35);g.beginPath();g.arc(7,4.4,3.75,Math.PI,0);g.closePath();g.fill();rr(6.2,3.5,5.4,1.3,.6,g);g.fill();
-    g.fillStyle='rgba(255,255,255,.25)';circ(7,1.4,.7,g);g.fill()}
-  else{g.fillStyle=o.hair;g.beginPath();g.arc(7,4.6,3.7,Math.PI*1.02,Math.PI*1.98);g.closePath();g.fill();
-    if(o.style===0){g.fillRect(3.4,3.8,1.2,2)}
-    if(o.style===2){circ(7,1.1,1.6,g);g.fill()}
-    if(o.style===4){for(const [x,y] of [[4,3.3],[5.5,2],[7.3,1.6],[9.1,2.1],[10.1,3.5]]){circ(x,y,1.35,g);g.fill()}}}
-  if(o.glasses){g.strokeStyle='#1d1f26';g.lineWidth=.55;circ(5.7,5.6,1,g);g.stroke();circ(8.3,5.6,1,g);g.stroke();g.beginPath();g.moveTo(6.7,5.6);g.lineTo(7.3,5.6);g.stroke()}
-  g.fillStyle='#2a1f1b';circ(5.7,5.6,.48,g);g.fill();circ(8.3,5.6,.48,g);g.fill();
-  g.fillStyle='rgba(255,110,110,.35)';circ(4.9,6.7,.7,g);g.fill();circ(9.1,6.7,.7,g);g.fill();
-  g.strokeStyle='rgba(60,30,25,.55)';g.lineWidth=.45;g.beginPath();g.arc(7,6.6,.9,.3,Math.PI-.3);g.stroke();
-  g.restore();
-}
 function makeSprites(){
-  const R0=rng(11);
-  for(const col of PAL){SPR[col]=[];
-    for(let v=0;v<8;v++){const o={skin:SKIN[Math.floor(R0()*4)],hair:HAIR[Math.floor(R0()*6)],pants:PANTS[Math.floor(R0()*5)],style:Math.floor(R0()*5),bp:R0()<.3,stripe:R0()<.3,logo:R0()<.25,glasses:R0()<.2};
-      const fr=[];for(let f=0;f<4;f++){const c=document.createElement('canvas');c.width=SW*SC;c.height=SH*SC;const g=c.getContext('2d');g.scale(SC,SC);drawPerson(g,col,o,f);fr.push(c)}
-      SPR[col].push(fr)}}
+  for(const col of PAL){const c=document.createElement('canvas');c.width=SW*SC;c.height=SH*SC;const g=c.getContext('2d');g.scale(SC,SC);
+    g.fillStyle='rgba(0,0,0,.35)';g.beginPath();g.ellipse(7,15.6,6.6,1.5,0,0,7);g.fill();
+    const fg=g.createLinearGradient(0,6,0,15.5);fg.addColorStop(0,shade(col,-.08));fg.addColorStop(1,shade(col,-.34));
+    g.fillStyle=fg;rr(1,4.5,12,11,2.2,g);g.fill();
+    const tg=g.createLinearGradient(1,1,13,7);tg.addColorStop(0,shade(col,.32));tg.addColorStop(1,shade(col,.08));
+    g.fillStyle=tg;rr(1,1,12,7,2.2,g);g.fill();
+    g.fillStyle='rgba(255,255,255,.55)';rr(2.6,2,4.6,1.6,.8,g);g.fill();
+    g.fillStyle='rgba(255,255,255,.18)';g.fillRect(2,9,1.2,4.5);
+    g.strokeStyle='rgba(0,0,0,.32)';g.lineWidth=.6;rr(1,1,12,14.5,2.2,g);g.stroke();
+    SPR[col]=c}
 }
 function drawP(col,v,f,x,y,s,rot,alpha){
-  const img=SPR[col][v][f&3],w=SW*s,h=SH*s;
-  if(rot||alpha<1){ctx.save();ctx.globalAlpha=alpha==null?1:alpha;ctx.translate(x,y-h*.5);ctx.rotate(rot||0);ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore()}
-  else ctx.drawImage(img,x-w/2,y-h+s,w,h);
+  const img=SPR[col],w=SW*s,h=SH*s,bob=(f&1)?-1.6*s:0;
+  ctx.drawImage(img,x-w/2,y-h+s+bob,w,h);
 }
 
 // ================= LAYOUT & BACKGROUND =================
@@ -529,7 +503,7 @@ function startFly(b,x,y,a,sz,crane){Object.assign(b,{state:'fly',fx:x,fy:y,fa:a,
 // ================= CROWD =================
 // Each side is a snaking queue (three lanes). People walk through the side doors into the circle,
 // circle around the fountain in one or two walking lanes, and leave only through the gate at the bottom.
-const SP=13,WALK=105,PS=1.32,GATE=Math.PI/2,TAU=Math.PI*2,RING_V=80;
+const SP=16,WALK=95,PS=1.15,GATE=Math.PI/2,TAU=Math.PI*2,RING_V=42;
 let QP=[null,null],slots=[],lanes=1,ringT=0,doorT=[0,0];
 function laneR(l){return lanes===1?RAD*.68:(l?RAD*.52:RAD*.8)}
 function makeSlots(){lanes=POOL>16?2:1;slots=[];
@@ -861,8 +835,8 @@ function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);d
 makeSprites();genLevel(save.level);layout();updateHud();requestAnimationFrame(frame);
 showOv(`<div class="card"><h1>Peron Panika</h1><ol>
 <li>Tapni autobus da izađe s parkinga u smjeru strelice i stane na peron.</li>
-<li>Putnici čekaju u dva reda, lijevo i desno, grupisani po bojama, i kroz lijeva i desna vrata ulaze u krug.</li>
-<li>Kruže oko fontane i izlaze samo kroz vrata na dnu, pa u koloni pješače do busa svoje boje. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, gotovo je.</li></ol>
+<li>Putnici (kockice u boji) čekaju u dva reda grupisani po bojama. Krug se prvo puni iz lijevog reda kroz lijeva vrata, pa iz desnog kroz desna.</li>
+<li>Kockice kruže oko fontane i izlaze samo kroz vrata na dnu, pa u koloni klize do busa svoje boje. Ako je krug pun, a nijedan putnik ne odgovara autobusima na peronima, gotovo je.</li></ol>
 <p>Kasnije stižu tajni autobusi, čunjevi, lanci s ključem, led i špica sa satom.</p>
 <div class="row"><button class="big" id="start">${save.level>1?'Nastavi · nivo '+save.level:'Kreni'}</button></div></div>`);
 </script>
